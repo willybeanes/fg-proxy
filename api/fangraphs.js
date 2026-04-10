@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   const qs = new URL(req.url, `http://${req.headers.host}`).search;
   try {
     const r = await fetch(BASE + qs, {
-      headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.fangraphs.com/' }
+      headers: { 'Accept': 'application/json' }
     });
     const data = await r.json();
     res.setHeader('Content-Type', 'application/json');
