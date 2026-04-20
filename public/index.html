@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FG WAR Leaderboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 20px 28px 16px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    header h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: -0.01em;
+    }
+
+    header p {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      align-items: flex-end;
+      padding: 14px 28px;
+      background: #131f35;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .filter-group label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #475569;
+    }
+
+    select {
+      background: #0f172a;
+      color: #cbd5e1;
+      border: 1px solid #334155;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      padding-right: 26px;
+    }
+
+    select:focus { outline: none; border-color: #3b82f6; }
+
+    .main { padding: 20px 28px; }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      min-height: 22px;
+    }
+
+    .status-bar .count {
+      font-size: 0.78rem;
+      color: #475569;
+    }
+
+    .status-bar .hint {
+      font-size: 0.73rem;
+      color: #334155;
+    }
+
+    .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid #1e293b; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    thead th {
+      padding: 9px 12px;
+      background: #1a2744;
+      color: #64748b;
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      text-align: right;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    thead th:first-child,
+    thead th:nth-child(2) { text-align: left; }
+
+    thead th:hover { color: #94a3b8; }
+    thead th.sorted { color: #60a5fa; }
+
+    tbody td {
+      padding: 7px 12px;
+      text-align: right;
+      border-bottom: 1px solid #0f172a;
+      white-space: nowrap;
+      color: #cbd5e1;
+    }
+
+    tbody td:first-child,
+    tbody td:nth-child(2) { text-align: left; }
+
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #1e293b; }
+
+    .rank-cell { color: #475569; font-size: 0.75rem; }
+
+    .name-cell {
+      font-weight: 500;
+      color: #e2e8f0;
+    }
+
+    .team-cell {
+      color: #94a3b8;
+      font-size: 0.78rem;
+    }
+
+    .war-cell {
+      font-weight: 700;
+      color: #60a5fa;
+    }
+
+    .war-pos { color: #34d399; }
+    .war-neg { color: #f87171; }
+
+    .loading, .empty {
+      text-align: center;
+      padding: 56px 24px;
+      color: #475569;
+    }
+
+    .loading svg {
+      animation: spin 0.9s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .error-msg {
+      background: #1f0a0a;
+      border: 1px solid #7f1d1d;
+      color: #fca5a5;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      font-size: 0.82rem;
+    }
+
+    @media (max-width: 600px) {
+      header, .filters, .main { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>WAR Leaderboard</h1>
+  <p>FanGraphs Wins Above Replacement &mdash; 2025 season</p>
+</header>
+
+<div class="filters">
+  <div class="filter-group">
+    <label for="team-filter">Team</label>
+    <select id="team-filter">
+      <option value="0">All Teams</option>
+      <option value="1">Angels</option>
+      <option value="2">Astros</option>
+      <option value="3">Athletics</option>
+      <option value="4">Blue Jays</option>
+      <option value="5">Braves</option>
+      <option value="6">Brewers</option>
+      <option value="7">Cardinals</option>
+      <option value="8">Cubs</option>
+      <option value="9">Diamondbacks</option>
+      <option value="10">Dodgers</option>
+      <option value="11">Giants</option>
+      <option value="12">Guardians</option>
+      <option value="13">Mariners</option>
+      <option value="14">Marlins</option>
+      <option value="15">Mets</option>
+      <option value="16">Nationals</option>
+      <option value="17">Orioles</option>
+      <option value="18">Padres</option>
+      <option value="19">Phillies</option>
+      <option value="20">Pirates</option>
+      <option value="21">Rangers</option>
+      <option value="22">Rays</option>
+      <option value="23">Red Sox</option>
+      <option value="24">Reds</option>
+      <option value="25">Rockies</option>
+      <option value="26">Royals</option>
+      <option value="27">Tigers</option>
+      <option value="28">Twins</option>
+      <option value="29">White Sox</option>
+      <option value="30">Yankees</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label for="season">Season</label>
+    <select id="season">
+      <option value="2025">2025</option>
+      <option value="2024">2024</option>
+      <option value="2023">2023</option>
+      <option value="2022">2022</option>
+      <option value="2021">2021</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label for="stats-type">Type</label>
+    <select id="stats-type">
+      <option value="bat">Batting</option>
+      <option value="pit">Pitching</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label for="qual">Min PA / IP</label>
+    <select id="qual">
+      <option value="y">Qualified</option>
+      <option value="0">All</option>
+      <option value="50">50+</option>
+      <option value="100">100+</option>
+      <option value="200">200+</option>
+      <option value="300">300+</option>
+    </select>
+  </div>
+</div>
+
+<div class="main">
+  <div id="error-msg" class="error-msg" style="display:none"></div>
+
+  <div class="status-bar">
+    <span id="count-label" class="count"></span>
+    <span class="hint">Click column headers to sort</span>
+  </div>
+
+  <div id="loading" class="loading">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round">
+      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+    </svg>
+    <p style="margin-top:12px;font-size:0.82rem;">Loading…</p>
+  </div>
+
+  <div id="empty" class="empty" style="display:none">No results found for the selected filters.</div>
+
+  <div class="table-wrap" id="table-wrap" style="display:none">
+    <table>
+      <thead id="thead"></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const BAT_COLS = [
+    { key: '#',          label: '#',      fixed: true },
+    { key: 'PlayerName', label: 'Name',   fixed: true },
+    { key: 'Team',       label: 'Team',   fixed: true },
+    { key: 'Age',        label: 'Age' },
+    { key: 'G',          label: 'G' },
+    { key: 'PA',         label: 'PA' },
+    { key: 'HR',         label: 'HR' },
+    { key: 'R',          label: 'R' },
+    { key: 'RBI',        label: 'RBI' },
+    { key: 'SB',         label: 'SB' },
+    { key: 'AVG',        label: 'AVG',    dec: 3 },
+    { key: 'OBP',        label: 'OBP',    dec: 3 },
+    { key: 'SLG',        label: 'SLG',    dec: 3 },
+    { key: 'OPS',        label: 'OPS',    dec: 3 },
+    { key: 'wOBA',       label: 'wOBA',   dec: 3 },
+    { key: 'wRC+',       label: 'wRC+' },
+    { key: 'WAR',        label: 'WAR',    dec: 1, war: true },
+  ];
+
+  const PIT_COLS = [
+    { key: '#',          label: '#',      fixed: true },
+    { key: 'PlayerName', label: 'Name',   fixed: true },
+    { key: 'Team',       label: 'Team',   fixed: true },
+    { key: 'Age',        label: 'Age' },
+    { key: 'W',          label: 'W' },
+    { key: 'L',          label: 'L' },
+    { key: 'ERA',        label: 'ERA',    dec: 2 },
+    { key: 'G',          label: 'G' },
+    { key: 'GS',         label: 'GS' },
+    { key: 'IP',         label: 'IP',     dec: 1 },
+    { key: 'K/9',        label: 'K/9',    dec: 2 },
+    { key: 'BB/9',       label: 'BB/9',   dec: 2 },
+    { key: 'HR/9',       label: 'HR/9',   dec: 2 },
+    { key: 'FIP',        label: 'FIP',    dec: 2 },
+    { key: 'xFIP',       label: 'xFIP',   dec: 2 },
+    { key: 'WAR',        label: 'WAR',    dec: 1, war: true },
+  ];
+
+  let rawData = [];
+  let sortKey = 'WAR';
+  let sortAsc = false;
+  let activeCols = BAT_COLS;
+
+  function fmt(val, dec) {
+    if (val === null || val === undefined || val === '') return '-';
+    if (dec !== undefined) return Number(val).toFixed(dec);
+    if (typeof val === 'number') return val;
+    return val;
+  }
+
+  function render() {
+    const sorted = [...rawData].sort((a, b) => {
+      if (sortKey === '#') return 0;
+      const av = a[sortKey] ?? (sortAsc ? Infinity : -Infinity);
+      const bv = b[sortKey] ?? (sortAsc ? Infinity : -Infinity);
+      const diff = typeof av === 'number' && typeof bv === 'number'
+        ? av - bv
+        : String(av).localeCompare(String(bv));
+      return sortAsc ? diff : -diff;
+    });
+
+    const thead = document.getElementById('thead');
+    const tbody = document.getElementById('tbody');
+
+    thead.innerHTML = '<tr>' + activeCols.map(col => {
+      const isSort = col.key === sortKey;
+      const arrow = isSort ? (sortAsc ? ' ↑' : ' ↓') : '';
+      return `<th class="${isSort ? 'sorted' : ''}" data-key="${col.key}">${col.label}${arrow}</th>`;
+    }).join('') + '</tr>';
+
+    thead.querySelectorAll('th').forEach(th => {
+      th.addEventListener('click', () => {
+        const k = th.dataset.key;
+        if (k === '#') return;
+        if (sortKey === k) sortAsc = !sortAsc;
+        else { sortKey = k; sortAsc = false; }
+        render();
+      });
+    });
+
+    tbody.innerHTML = sorted.map((row, i) => {
+      return '<tr>' + activeCols.map(col => {
+        if (col.key === '#') {
+          return `<td class="rank-cell">${i + 1}</td>`;
+        }
+        const raw = row[col.key];
+        const val = fmt(raw, col.dec);
+        if (col.key === 'PlayerName') return `<td class="name-cell">${val}</td>`;
+        if (col.key === 'Team') return `<td class="team-cell">${val}</td>`;
+        if (col.war) {
+          const n = parseFloat(raw);
+          const cls = isNaN(n) ? '' : n >= 2 ? 'war-pos' : n < 0 ? 'war-neg' : '';
+          return `<td class="war-cell ${cls}">${val}</td>`;
+        }
+        return `<td>${val}</td>`;
+      }).join('') + '</tr>';
+    }).join('');
+
+    document.getElementById('count-label').textContent =
+      sorted.length ? `${sorted.length} player${sorted.length !== 1 ? 's' : ''}` : '';
+  }
+
+  async function load() {
+    const team    = document.getElementById('team-filter').value;
+    const season  = document.getElementById('season').value;
+    const type    = document.getElementById('stats-type').value;
+    const qual    = document.getElementById('qual').value;
+
+    activeCols = type === 'bat' ? BAT_COLS : PIT_COLS;
+    sortKey = 'WAR';
+    sortAsc = false;
+
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('table-wrap').style.display = 'none';
+    document.getElementById('empty').style.display = 'none';
+    document.getElementById('error-msg').style.display = 'none';
+    document.getElementById('count-label').textContent = '';
+
+    const params = new URLSearchParams({
+      pos: 'all',
+      stats: type,
+      lg: 'all',
+      qual,
+      season,
+      season1: season,
+      ind: '0',
+      team,
+      sortstat: 'WAR',
+      sortdir: 'default',
+      pageitems: '300',
+      pagenum: '1',
+    });
+
+    try {
+      const res = await fetch(`/api/fangraphs?${params}`);
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const json = await res.json();
+      rawData = Array.isArray(json.data) ? json.data : [];
+      document.getElementById('loading').style.display = 'none';
+      if (rawData.length === 0) {
+        document.getElementById('empty').style.display = 'block';
+      } else {
+        render();
+        document.getElementById('table-wrap').style.display = 'block';
+      }
+    } catch (err) {
+      document.getElementById('loading').style.display = 'none';
+      const el = document.getElementById('error-msg');
+      el.textContent = `Failed to load data: ${err.message}`;
+      el.style.display = 'block';
+    }
+  }
+
+  ['team-filter', 'season', 'stats-type', 'qual'].forEach(id => {
+    document.getElementById(id).addEventListener('change', load);
+  });
+
+  load();
+</script>
+</body>
+</html>
