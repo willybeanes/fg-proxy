@@ -49,18 +49,37 @@ export default async function handler(req, res) {
     return res.status(200).json(cached);
   }
 
-  // 2. Fetch via Scrape.do (handles Cloudflare bypass)
-  const SCRAPE_KEY = process.env.SCRAPE_DO_KEY;
-  if (!SCRAPE_KEY) return res.status(500).json({ error: 'SCRAPE_DO_KEY not configured' });
-  const proxyUrl = `https://api.scrape.do?token=${SCRAPE_KEY}&url=${encodeURIComponent(fgUrl)}`;
+  // 2. Fetch via proxy — try Scrape.do first, fall back to ScraperAPI
+  const SCRAPE_DO_KEY  = process.env.SCRAPE_DO_KEY;
+  const SCRAPER_KEY    = process.env.SCRAPER_API_KEY;
 
-  try {
+  async function tryFetch(proxyUrl) {
     const r = await fetch(proxyUrl);
     if (!r.ok) {
       const text = await r.text();
-      return res.status(r.status).json({ error: `FanGraphs returned ${r.status}`, detail: text.slice(0, 200) });
+      throw new Error(`upstream ${r.status}: ${text.slice(0, 200)}`);
     }
-    const data = await r.json();
+    return r.json();
+  }
+
+  try {
+    let data;
+    if (SCRAPE_DO_KEY) {
+      try {
+        const url = `https://api.scrape.do?token=${SCRAPE_DO_KEY}&url=${encodeURIComponent(fgUrl)}`;
+        data = await tryFetch(url);
+      } catch (scrapeDoErr) {
+        console.warn('Scrape.do failed, trying ScraperAPI:', scrapeDoErr.message);
+        if (!SCRAPER_KEY) throw scrapeDoErr;
+        const url = `https://api.scraperapi.com/?api_key=${SCRAPER_KEY}&url=${encodeURIComponent(fgUrl)}`;
+        data = await tryFetch(url);
+      }
+    } else if (SCRAPER_KEY) {
+      const url = `https://api.scraperapi.com/?api_key=${SCRAPER_KEY}&url=${encodeURIComponent(fgUrl)}`;
+      data = await tryFetch(url);
+    } else {
+      return res.status(500).json({ error: 'No proxy key configured (SCRAPE_DO_KEY or SCRAPER_API_KEY)' });
+    }
 
     // 3. Store in cache (fire and forget)
     kvSet(cacheKey, data, CACHE_TTL);
