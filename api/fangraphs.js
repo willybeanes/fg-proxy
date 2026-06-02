@@ -1,5 +1,5 @@
 const BASE      = 'https://www.fangraphs.com/api/leaders/major-league/data';
-const CACHE_TTL = 12 * 3600; // 12 hours
+const CACHE_TTL = 12 * 3600; // 12 hours — FanGraphs data updates at most once a day
 
 // ── Vercel KV helpers (REST API, no npm deps) ────────────────────────────────
 async function kvGet(key) {
@@ -49,37 +49,18 @@ export default async function handler(req, res) {
     return res.status(200).json(cached);
   }
 
-  // 2. Fetch via proxy — try Scrape.do first, fall back to ScraperAPI
-  const SCRAPE_DO_KEY  = process.env.SCRAPE_DO_KEY;
-  const SCRAPER_KEY    = process.env.SCRAPER_API_KEY;
+  // 2. Fetch via ScraperAPI (handles Cloudflare bypass)
+  const SCRAPER_KEY = process.env.SCRAPER_API_KEY;
+  if (!SCRAPER_KEY) return res.status(500).json({ error: 'SCRAPER_API_KEY not configured' });
+  const proxyUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_KEY}&url=${encodeURIComponent(fgUrl)}`;
 
-  async function tryFetch(proxyUrl) {
+  try {
     const r = await fetch(proxyUrl);
     if (!r.ok) {
       const text = await r.text();
-      throw new Error(`upstream ${r.status}: ${text.slice(0, 200)}`);
+      return res.status(r.status).json({ error: `FanGraphs returned ${r.status}`, detail: text.slice(0, 200) });
     }
-    return r.json();
-  }
-
-  try {
-    let data;
-    if (SCRAPE_DO_KEY) {
-      try {
-        const url = `https://api.scrape.do?token=${SCRAPE_DO_KEY}&url=${encodeURIComponent(fgUrl)}`;
-        data = await tryFetch(url);
-      } catch (scrapeDoErr) {
-        console.warn('Scrape.do failed, trying ScraperAPI:', scrapeDoErr.message);
-        if (!SCRAPER_KEY) throw scrapeDoErr;
-        const url = `https://api.scraperapi.com/?api_key=${SCRAPER_KEY}&url=${encodeURIComponent(fgUrl)}`;
-        data = await tryFetch(url);
-      }
-    } else if (SCRAPER_KEY) {
-      const url = `https://api.scraperapi.com/?api_key=${SCRAPER_KEY}&url=${encodeURIComponent(fgUrl)}`;
-      data = await tryFetch(url);
-    } else {
-      return res.status(500).json({ error: 'No proxy key configured (SCRAPE_DO_KEY or SCRAPER_API_KEY)' });
-    }
+    const data = await r.json();
 
     // 3. Store in cache (fire and forget)
     kvSet(cacheKey, data, CACHE_TTL);
