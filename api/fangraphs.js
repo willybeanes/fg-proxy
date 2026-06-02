@@ -1,25 +1,48 @@
+import { kvGet, kvSet } from './_kv.js';
+
+const BASE    = 'https://www.fangraphs.com/api/leaders/major-league/data';
+const CACHE_TTL = 12 * 3600; // 12 hours — FanGraphs data updates at most once a day
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const BASE = 'https://www.fangraphs.com/api/leaders/major-league/data';
-  const qs = new URL(req.url, `http://${req.headers.host}`).search;
+  const qs    = new URL(req.url, `http://${req.headers.host}`).search;
   const fgUrl = BASE + qs;
 
-  const SCRAPER_KEY = process.env.SCRAPER_API_KEY;
-  if (!SCRAPER_KEY) return res.status(500).json({ error: 'SCRAPER_API_KEY not configured' });
-  const scraperUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_KEY}&url=${encodeURIComponent(fgUrl)}`;
+  // Normalise cache key: sort params so different orderings share the same entry
+  const params = new URLSearchParams(qs);
+  const sorted = new URLSearchParams([...params.entries()].sort());
+  const cacheKey = `fg:${sorted.toString()}`;
+
+  // 1. Try cache
+  const cached = await kvGet(cacheKey);
+  if (cached) {
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('X-Cache', 'HIT');
+    return res.status(200).json(cached);
+  }
+
+  // 2. Fetch via Scrape.do (handles Cloudflare bypass)
+  const SCRAPE_KEY = process.env.SCRAPE_DO_KEY;
+  if (!SCRAPE_KEY) return res.status(500).json({ error: 'SCRAPE_DO_KEY not configured' });
+  const proxyUrl = `https://api.scrape.do?token=${SCRAPE_KEY}&url=${encodeURIComponent(fgUrl)}`;
 
   try {
-    const r = await fetch(scraperUrl);
+    const r = await fetch(proxyUrl);
     if (!r.ok) {
       const text = await r.text();
       return res.status(r.status).json({ error: `FanGraphs returned ${r.status}`, detail: text.slice(0, 200) });
     }
     const data = await r.json();
+
+    // 3. Store in cache (fire and forget)
+    kvSet(cacheKey, data, CACHE_TTL);
+
     res.setHeader('Content-Type', 'application/json');
+    res.setHeader('X-Cache', 'MISS');
     res.setHeader('Cache-Control', 's-maxage=300');
     return res.status(200).json(data);
   } catch (e) {
