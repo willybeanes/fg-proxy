@@ -6,22 +6,13 @@ export default async function handler(req, res) {
 
   const BASE = 'https://www.fangraphs.com/api/leaders/major-league/data';
   const qs = new URL(req.url, `http://${req.headers.host}`).search;
+  const fgUrl = BASE + qs;
+
+  const SCRAPER_KEY = process.env.SCRAPER_API_KEY || '9d3aa897d4f7331a8c8bb45a1102c00d';
+  const scraperUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_KEY}&url=${encodeURIComponent(fgUrl)}`;
+
   try {
-    const r = await fetch(BASE + qs, {
-      headers: {
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Referer': 'https://www.fangraphs.com/leaders/major-league',
-        'Origin': 'https://www.fangraphs.com',
-        'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"macOS"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-      }
-    });
+    const r = await fetch(scraperUrl);
     if (!r.ok) {
       const text = await r.text();
       return res.status(r.status).json({ error: `FanGraphs returned ${r.status}`, detail: text.slice(0, 200) });
