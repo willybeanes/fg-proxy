@@ -8,7 +8,8 @@ export default async function handler(req, res) {
   const qs = new URL(req.url, `http://${req.headers.host}`).search;
   const fgUrl = BASE + qs;
 
-  const SCRAPER_KEY = process.env.SCRAPER_API_KEY || '9d3aa897d4f7331a8c8bb45a1102c00d';
+  const SCRAPER_KEY = process.env.SCRAPER_API_KEY;
+  if (!SCRAPER_KEY) return res.status(500).json({ error: 'SCRAPER_API_KEY not configured' });
   const scraperUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_KEY}&url=${encodeURIComponent(fgUrl)}`;
 
   try {
