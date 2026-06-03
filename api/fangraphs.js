@@ -36,7 +36,7 @@ export default async function handler(req, res) {
   const qs    = new URL(req.url, `http://${req.headers.host}`).search;
   const fgUrl = BASE + qs;
 
-  // Normalise cache key: sort params so different orderings share the same entry
+  // Normalise cache key
   const params = new URLSearchParams(qs);
   const sorted = new URLSearchParams([...params.entries()].sort());
   const cacheKey = `fg:${sorted.toString()}`;
@@ -49,20 +49,48 @@ export default async function handler(req, res) {
     return res.status(200).json(cached);
   }
 
-  // 2. Fetch via ScraperAPI (handles Cloudflare bypass)
+  // 2. Fetch — cookie auth first, ScraperAPI fallback
+  const COOKIE      = process.env.FANGRAPHS_COOKIE;
   const SCRAPER_KEY = process.env.SCRAPER_API_KEY;
-  if (!SCRAPER_KEY) return res.status(500).json({ error: 'SCRAPER_API_KEY not configured' });
-  const proxyUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_KEY}&url=${encodeURIComponent(fgUrl)}`;
+
+  async function fetchDirect() {
+    const r = await fetch(fgUrl, {
+      headers: {
+        'Accept': 'application/json, text/plain, */*',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Referer': 'https://www.fangraphs.com/',
+        ...(COOKIE ? { 'Cookie': COOKIE } : {}),
+      },
+    });
+    return r;
+  }
+
+  async function fetchViaScraperAPI() {
+    if (!SCRAPER_KEY) throw new Error('No SCRAPER_API_KEY configured');
+    return fetch(`https://api.scraperapi.com/?api_key=${SCRAPER_KEY}&url=${encodeURIComponent(fgUrl)}`);
+  }
 
   try {
-    const r = await fetch(proxyUrl);
+    let r;
+    if (COOKIE) {
+      r = await fetchDirect();
+      // If cookie expired/invalid, fall back to ScraperAPI
+      if (r.status === 403 && SCRAPER_KEY) {
+        console.warn('FanGraphs cookie returned 403 — falling back to ScraperAPI');
+        r = await fetchViaScraperAPI();
+      }
+    } else if (SCRAPER_KEY) {
+      r = await fetchViaScraperAPI();
+    } else {
+      return res.status(500).json({ error: 'No FANGRAPHS_COOKIE or SCRAPER_API_KEY configured' });
+    }
+
     if (!r.ok) {
       const text = await r.text();
       return res.status(r.status).json({ error: `FanGraphs returned ${r.status}`, detail: text.slice(0, 200) });
     }
-    const data = await r.json();
 
-    // 3. Store in cache (fire and forget)
+    const data = await r.json();
     kvSet(cacheKey, data, CACHE_TTL);
 
     res.setHeader('Content-Type', 'application/json');
