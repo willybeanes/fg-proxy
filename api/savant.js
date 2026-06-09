@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const path = url.searchParams.get('path');
 
-  const ALLOWED = ['/leaderboard/statcast', '/leaderboard/expected_statistics', '/statcast_search/csv', '/leaderboard/bat-tracking', '/leaderboard/custom', '/leaderboard/batted-ball'];
+  const ALLOWED = ['/leaderboard/statcast', '/leaderboard/expected_statistics', '/statcast_search/csv', '/leaderboard/bat-tracking', '/leaderboard/custom', '/leaderboard/batted-ball', '/leaderboard/bat-tracking/swing-timing-miss-distance'];
   if (!path || !ALLOWED.includes(path)) {
     return res.status(400).json({ error: 'Invalid path' });
   }
