@@ -6,6 +6,7 @@ const ALLOWED_PATHS = [
   '/api/players/player',
   '/api/players/game-log',
   '/api/players/playerSearch',
+  '/api/leaders/leaders',
 ]
 
 export default async function handler(req, res) {
