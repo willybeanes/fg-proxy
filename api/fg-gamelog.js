@@ -7,6 +7,7 @@ const ALLOWED_PATHS = [
   '/api/players/game-log',
   '/api/players/playerSearch',
   '/api/leaders/leaders',
+  '/api/leaders/splits-leaders',
   '/api/search/player',
 ]
 
