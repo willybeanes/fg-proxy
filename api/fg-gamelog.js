@@ -28,37 +28,18 @@ export default async function handler(req, res) {
 
   const fgUrl = `https://www.fangraphs.com${path}?${params.toString()}`
 
-  const COOKIE      = process.env.FANGRAPHS_COOKIE
-  const SCRAPER_KEY = process.env.SCRAPER_API_KEY
+  const COOKIE = process.env.FANGRAPHS_COOKIE
+  if (!COOKIE) return res.status(500).json({ error: 'No FANGRAPHS_COOKIE configured' })
 
-  async function fetchDirect() {
-    return fetch(fgUrl, {
+  try {
+    const r = await fetch(fgUrl, {
       headers: {
         'Accept': 'application/json, */*',
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Referer': 'https://www.fangraphs.com/',
-        ...(COOKIE ? { Cookie: COOKIE } : {}),
+        Cookie: COOKIE,
       },
     })
-  }
-
-  async function fetchViaScraperAPI() {
-    if (!SCRAPER_KEY) throw new Error('No SCRAPER_API_KEY configured')
-    return fetch(`https://api.scraperapi.com/?api_key=${SCRAPER_KEY}&url=${encodeURIComponent(fgUrl)}`)
-  }
-
-  try {
-    let r
-    if (COOKIE) {
-      r = await fetchDirect()
-      if (r.status === 403 && SCRAPER_KEY) {
-        r = await fetchViaScraperAPI()
-      }
-    } else if (SCRAPER_KEY) {
-      r = await fetchViaScraperAPI()
-    } else {
-      return res.status(500).json({ error: 'No FANGRAPHS_COOKIE or SCRAPER_API_KEY configured' })
-    }
 
     if (!r.ok) {
       const text = await r.text()

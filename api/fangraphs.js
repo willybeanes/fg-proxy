@@ -49,41 +49,22 @@ export default async function handler(req, res) {
     return res.status(200).json(cached);
   }
 
-  // 2. Fetch — cookie auth first, ScraperAPI fallback
-  const COOKIE      = process.env.FANGRAPHS_COOKIE;
-  const SCRAPER_KEY = process.env.SCRAPER_API_KEY;
+  // 2. Fetch — requires cookie auth
+  const COOKIE = process.env.FANGRAPHS_COOKIE;
+  if (!COOKIE) {
+    return res.status(500).json({ error: 'No FANGRAPHS_COOKIE configured' });
+  }
 
-  async function fetchDirect() {
+  try {
     const r = await fetch(fgUrl, {
       headers: {
         'Accept': 'application/json, text/plain, */*',
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Referer': 'https://www.fangraphs.com/',
-        ...(COOKIE ? { 'Cookie': COOKIE } : {}),
+        'Cookie': COOKIE,
       },
     });
-    return r;
-  }
-
-  async function fetchViaScraperAPI() {
-    if (!SCRAPER_KEY) throw new Error('No SCRAPER_API_KEY configured');
-    return fetch(`https://api.scraperapi.com/?api_key=${SCRAPER_KEY}&url=${encodeURIComponent(fgUrl)}`);
-  }
-
-  try {
-    let r;
-    if (COOKIE) {
-      r = await fetchDirect();
-      // If cookie expired/invalid, fall back to ScraperAPI
-      if (r.status === 403 && SCRAPER_KEY) {
-        console.warn('FanGraphs cookie returned 403 — falling back to ScraperAPI');
-        r = await fetchViaScraperAPI();
-      }
-    } else if (SCRAPER_KEY) {
-      r = await fetchViaScraperAPI();
-    } else {
-      return res.status(500).json({ error: 'No FANGRAPHS_COOKIE or SCRAPER_API_KEY configured' });
-    }
+    {
 
     if (!r.ok) {
       const text = await r.text();
