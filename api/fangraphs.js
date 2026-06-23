@@ -64,7 +64,6 @@ export default async function handler(req, res) {
         'Cookie': COOKIE,
       },
     });
-    {
 
     if (!r.ok) {
       const text = await r.text();
