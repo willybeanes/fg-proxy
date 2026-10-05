@@ -1,6 +1,7 @@
 // Proxy for Fangraphs player info + game log endpoints (needs auth cookie).
 // GET /api/fg-gamelog?path=/api/players/player&playerid=sa676440
 // GET /api/fg-gamelog?path=/api/players/game-log&playerid=19716&position=P&type=52&season=2026
+// GET /api/fg-gamelog?path=/api/projections&type=zipsp1&stats=bat&pos=all&team=0&players=0&lg=all
 
 const ALLOWED_PATHS = [
   '/api/players/player',
@@ -9,6 +10,7 @@ const ALLOWED_PATHS = [
   '/api/leaders/leaders',
   '/api/leaders/splits-leaders',
   '/api/search/player',
+  '/api/projections',
 ]
 
 export default async function handler(req, res) {
