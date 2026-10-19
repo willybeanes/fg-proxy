@@ -1,5 +1,9 @@
 const BASE      = 'https://www.fangraphs.com/api/leaders/major-league/data';
 const CACHE_TTL = 12 * 3600; // 12 hours — FanGraphs data updates at most once a day
+// Let Vercel's CDN serve repeats for the same 12 hours, so a cached answer doesn't run the
+// function and re-send multi-MB leaderboards (Fast Origin Transfer). Serve stale for a day
+// while it refreshes in the background.
+const EDGE_CACHE = `public, s-maxage=${CACHE_TTL}, stale-while-revalidate=86400`;
 
 // ── Vercel KV helpers (REST API, no npm deps) ────────────────────────────────
 async function kvGet(key) {
@@ -46,6 +50,7 @@ export default async function handler(req, res) {
   if (cached) {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('X-Cache', 'HIT');
+    res.setHeader('Cache-Control', EDGE_CACHE);
     return res.status(200).json(cached);
   }
 
@@ -75,7 +80,7 @@ export default async function handler(req, res) {
 
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('X-Cache', 'MISS');
-    res.setHeader('Cache-Control', 's-maxage=300');
+    res.setHeader('Cache-Control', EDGE_CACHE);
     return res.status(200).json(data);
   } catch (e) {
     return res.status(500).json({ error: e.message });

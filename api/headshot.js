@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     const contentType = r.headers.get('content-type') || 'image/png';
     const buffer = await r.arrayBuffer();
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800');
     return res.status(200).send(Buffer.from(buffer));
   } catch (e) {
     return res.status(502).json({ error: e.message });
