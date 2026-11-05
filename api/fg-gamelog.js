@@ -4,6 +4,7 @@
 // GET /api/fg-gamelog?path=/api/projections&type=zipsp1&stats=bat&pos=all&team=0&players=0&lg=all
 // GET /api/fg-gamelog?path=/api/depth-charts/roster&teamid=1                (RosterResource)
 // GET /api/fg-gamelog?path=/api/depth-charts/recent-transactions&teamid=1
+// GET /api/fg-gamelog?path=/api/tools/free-agent-tracker/v2/free-agents&season=2027
 
 const ALLOWED_PATHS = [
   '/api/players/player',
@@ -15,6 +16,7 @@ const ALLOWED_PATHS = [
   '/api/projections',
   '/api/depth-charts/roster',
   '/api/depth-charts/recent-transactions',
+  '/api/tools/free-agent-tracker/v2/free-agents',
 ]
 
 export default async function handler(req, res) {
