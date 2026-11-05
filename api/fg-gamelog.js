@@ -2,6 +2,8 @@
 // GET /api/fg-gamelog?path=/api/players/player&playerid=sa676440
 // GET /api/fg-gamelog?path=/api/players/game-log&playerid=19716&position=P&type=52&season=2026
 // GET /api/fg-gamelog?path=/api/projections&type=zipsp1&stats=bat&pos=all&team=0&players=0&lg=all
+// GET /api/fg-gamelog?path=/api/depth-charts/roster&teamid=1                (RosterResource)
+// GET /api/fg-gamelog?path=/api/depth-charts/recent-transactions&teamid=1
 
 const ALLOWED_PATHS = [
   '/api/players/player',
@@ -11,6 +13,8 @@ const ALLOWED_PATHS = [
   '/api/leaders/splits-leaders',
   '/api/search/player',
   '/api/projections',
+  '/api/depth-charts/roster',
+  '/api/depth-charts/recent-transactions',
 ]
 
 export default async function handler(req, res) {
